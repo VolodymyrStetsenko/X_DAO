@@ -1,0 +1,71 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+contract AdvancedDAO {
+    struct Proposal {
+        string description;
+        uint voteCountYes;
+        uint voteCountNo;
+        address proposer;
+        bool executed;
+        uint endTime;
+    }
+
+    Proposal[] public proposals;
+    mapping(address => uint) public tokens;
+    mapping(address => address) public delegated;
+
+    uint public minStake = 100;
+    uint public proposalDuration = 7 days;
+
+    constructor() {
+        tokens[msg.sender] = 1000; 
+    }
+
+    function propose(string memory description) public {
+        require(tokens[msg.sender] >= minStake, "You need to stake tokens to propose.");
+        proposals.push(Proposal({
+            description: description,
+            voteCountYes: 0,
+            voteCountNo: 0,
+            proposer: msg.sender,
+            executed: false,
+            endTime: block.timestamp + proposalDuration
+        }));
+    }
+
+    function vote(uint proposalIndex, bool voteYes) public {
+        require(tokens[msg.sender] > 0 || tokens[delegated[msg.sender]] > 0, "You need tokens to vote.");
+        require(block.timestamp < proposals[proposalIndex].endTime, "Voting period has ended.");
+
+        Proposal storage proposal = proposals[proposalIndex];
+
+        uint votingPower = tokens[msg.sender] + tokens[delegated[msg.sender]];
+
+        if (voteYes) {
+            proposal.voteCountYes += votingPower;
+        } else {
+            proposal.voteCountNo += votingPower;
+        }
+    }
+
+    function delegateVote(address delegateTo) public {
+        require(tokens[msg.sender] > 0, "You need tokens to delegate.");
+        delegated[msg.sender] = delegateTo;
+    }
+
+    function executeProposal(uint proposalIndex) public {
+        Proposal storage proposal = proposals[proposalIndex];
+        require(proposal.voteCountYes > proposal.voteCountNo, "Proposal did not pass.");
+        require(!proposal.executed, "Proposal already executed.");
+        require(block.timestamp > proposal.endTime, "Voting period is not over.");
+
+    
+        proposal.executed = true;
+    }
+
+    function stakeTokens(uint amount) public {
+        require(amount > 0, "Stake amount must be greater than 0.");
+        tokens[msg.sender] += amount;
+    }
+}
